@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  rmp-api:
+    image: ghcr.io/akramboussanni/rmp-api:main
+    container_name: rmp-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
