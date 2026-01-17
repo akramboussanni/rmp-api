@@ -1,6 +1,6 @@
 # RMP API
 
-A simple API to fetch professor ratings from RateMyProfessors.
+A simple API to fetch professor ratings from RateMyProfessors. Code taken from https://github.com/snow4060/rmp-api and translated to Python
 
 ## Running
 
