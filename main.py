@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Request
 import requests
 
 from slowapi import Limiter
@@ -19,6 +19,9 @@ RMP_URL = "https://www.ratemyprofessors.com/graphql"
 HEADERS = {
     "Content-Type": "application/json",
     "Authorization": "Basic dGVzdDp0ZXN0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://www.ratemyprofessors.com/",
+    "Origin": "https://www.ratemyprofessors.com",
 }
 
 SCHOOL_QUERY = """
@@ -66,9 +69,9 @@ query TeacherSearchResultsPageQuery(
 }
 """
 
-@app.get("/schools")
+@app.get("/schools/{name}")
 @limiter.limit("15/minute")
-def search_schools(name: str = Query(..., min_length=2)):
+def search_schools(request: Request, name: str):
     payload = {
         "query": SCHOOL_QUERY,
         "variables": {"query": {"text": name}},
@@ -83,11 +86,12 @@ def search_schools(name: str = Query(..., min_length=2)):
     ]
 
 
-@app.get("/professor")
+@app.get("/professor/{school_id}/{name}")
 @limiter.limit("15/minute")
 def get_professor(
-    name: str = Query(..., min_length=2),
-    school_id: str = Query(...)
+    request: Request,
+    school_id: str,
+    name: str
 ):
     payload = {
         "query": TEACHER_QUERY,
