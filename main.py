@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+
 import requests
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -9,6 +11,14 @@ from queries import SCHOOL_QUERY, TEACHER_QUERY, TEACHER_RATINGS_QUERY
 from utils import encode_school_id, encode_teacher_id
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
