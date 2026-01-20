@@ -48,9 +48,13 @@ GET /schools/ottawa
 
 Get professor rating info.
 
+**Query Parameters:**
+- `ratings` (bool, default: `false`): Include individual student ratings (comments, scores, etc).
+- `related` (bool, default: `false`): Include related professors from the same school.
+
 **Example:**
 ```
-GET /professor/U2Nob29sLTE0NTI=/John%20Smith
+GET /professor/U2Nob29sLTE0NTI=/Steve%20Desjardins?ratings=true
 ```
 
 **Response (found):**
@@ -96,14 +100,11 @@ GET /professor/U2Nob29sLTE0NTI=/John%20Smith
       "textbook": -1
     }
   ],
-  "relatedProfessors": [
-    {
-      "id": 2225832,
-      "d": "Jason Bramburger",
-      "rating": 5.0
-    }
-  ]
+  "relatedProfessors": [] 
 }
+```
+> [!TIP]
+> By default, `ratings` and `relatedProfessors` are excluded to keep response sizes small.
 ```
 
 **Response (not found):**

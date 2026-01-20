@@ -50,7 +50,9 @@ def search_schools(request: Request, name: str):
 def get_professor(
     request: Request,
     school_id: str,
-    name: str
+    name: str,
+    ratings: bool = False,
+    related: bool = False
 ):
     encoded_school_id = encode_school_id(school_id)
     # 1. Search for the professor
@@ -101,25 +103,7 @@ def get_professor(
     tags_data = node.get("teacherRatingTags", [])
     tags = [t["tagName"] for t in tags_data]
 
-    # Ratings
-    raw_ratings = node.get("ratings", {}).get("edges", [])
-    ratings = []
-    for edge in raw_ratings:
-        r_node = edge["node"]
-        ratings.append({
-            "comment": r_node.get("comment"),
-            "clarity": r_node.get("clarityRating"),
-            "helpful": r_node.get("helpfulRating"),
-            "difficulty": r_node.get("difficultyRating"),
-            "date": r_node.get("date"),
-            "class": r_node.get("class"),
-            "grade": r_node.get("grade"),
-            "tags": r_node.get("ratingTags", "").split("--") if r_node.get("ratingTags") else [],
-            "takeAgain": r_node.get("wouldTakeAgain"),
-            "textbook": r_node.get("textbookUse")
-        })
-
-    return {
+    result = {
         "found": True,
         "id": node.get("legacyId"),
         "firstName": node.get("firstName"),
@@ -138,8 +122,31 @@ def get_professor(
         "wouldTakeAgainPercent": node.get("wouldTakeAgainPercent"),
         "courses": courses,
         "tags": tags,
-        "ratings": ratings,
-        "relatedProfessors": [
+    }
+
+    # Optional: Ratings
+    if ratings:
+        raw_ratings = node.get("ratings", {}).get("edges", [])
+        ratings_list = []
+        for edge in raw_ratings:
+            r_node = edge["node"]
+            ratings_list.append({
+                "comment": r_node.get("comment"),
+                "clarity": r_node.get("clarityRating"),
+                "helpful": r_node.get("helpfulRating"),
+                "difficulty": r_node.get("difficultyRating"),
+                "date": r_node.get("date"),
+                "class": r_node.get("class"),
+                "grade": r_node.get("grade"),
+                "tags": r_node.get("ratingTags", "").split("--") if r_node.get("ratingTags") else [],
+                "takeAgain": r_node.get("wouldTakeAgain"),
+                "textbook": r_node.get("textbookUse")
+            })
+        result["ratings"] = ratings_list
+
+    # Optional: Related Professors
+    if related:
+        result["relatedProfessors"] = [
              {
                  "id": rt.get("legacyId"), 
                  "d": f"{rt.get('firstName')} {rt.get('lastName')}",
@@ -147,4 +154,5 @@ def get_professor(
              } 
              for rt in node.get("relatedTeachers", [])
         ]
-    }
+
+    return result
