@@ -54,13 +54,52 @@ GET /professor/U2Nob29sLTE0NTI=/John%20Smith
 ```json
 {
   "found": true,
-  "name": "John Smith",
-  "avgRating": 4.2,
-  "avgDifficulty": 3.1,
-  "wouldTakeAgain": 85,
-  "numRatings": 42,
-  "department": "Computer Science",
-  "link": "https://www.ratemyprofessors.com/professor/12345"
+  "id": 14890,
+  "firstName": "Steve",
+  "lastName": "Desjardins",
+  "name": "Steve Desjardins",
+  "department": "Mathematics",
+  "school": {
+    "name": "University of Ottawa",
+    "id": 1452,
+    "city": "Ottawa",
+    "state": "ON"
+  },
+  "avgRating": 4.5,
+  "avgDifficulty": 2.1,
+  "numRatings": 307,
+  "wouldTakeAgainPercent": 92.3077,
+  "courses": [
+    { "name": "MAT1320", "count": 98 },
+    { "name": "MAT2384", "count": 52 },
+    { "name": "MAT1322", "count": 46 }
+  ],
+  "tags": [
+    "Tough grader",
+    "Amazing lectures",
+    "Respected"
+  ],
+  "ratings": [
+    {
+      "comment": "Great prof, explains things well...",
+      "clarity": 5,
+      "helpful": 5,
+      "difficulty": 3,
+      "date": "2026-01-13 23:23:51 +0000 UTC",
+      "class": "MAT1320",
+      "grade": "D+",
+      "tags": ["Amazing lectures", "Respected"],
+      "takeAgain": 1,
+      "textbook": -1
+    }
+  ],
+  "relatedProfessors": [
+    {
+      "id": 2225832,
+      "d": "Jason Bramburger",
+      "rating": 5.0
+    }
+  ]
 }
 ```
 

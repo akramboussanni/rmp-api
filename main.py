@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Request
 import requests
-
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
+
+from queries import SCHOOL_QUERY, TEACHER_QUERY, TEACHER_RATINGS_QUERY
+from utils import encode_school_id, encode_teacher_id
 
 app = FastAPI()
 
@@ -24,51 +26,6 @@ HEADERS = {
     "Origin": "https://www.ratemyprofessors.com",
 }
 
-SCHOOL_QUERY = """
-query NewSearchSchoolsQuery($query: SchoolSearchQuery!) {
-  newSearch {
-    schools(query: $query) {
-      edges {
-        node {
-          id
-          legacyId
-          name
-          city
-          state
-          numRatings
-          avgRatingRounded
-        }
-      }
-    }
-  }
-}
-"""
-
-TEACHER_QUERY = """
-query TeacherSearchResultsPageQuery(
-  $query: TeacherSearchQuery!
-  $schoolID: ID
-  $includeSchoolFilter: Boolean!
-) {
-  search: newSearch {
-    teachers(query: $query, first: 1) {
-      edges {
-        node {
-          firstName
-          lastName
-          avgRating
-          avgDifficulty
-          wouldTakeAgainPercent
-          numRatings
-          department
-          legacyId
-        }
-      }
-    }
-  }
-}
-"""
-
 @app.get("/schools/{name}")
 @limiter.limit("15/minute")
 def search_schools(request: Request, name: str):
@@ -80,48 +37,114 @@ def search_schools(request: Request, name: str):
     r = requests.post(RMP_URL, headers=HEADERS, json=payload, timeout=10)
     data = r.json()
 
-    return [
-        s["node"]
-        for s in data["data"]["newSearch"]["schools"]["edges"]
-    ]
-
+    # Handle possible empty/error responses safely
+    try:
+        schools_data = data["data"]["newSearch"]["schools"]["edges"]
+        return [s["node"] for s in schools_data]
+    except (KeyError, TypeError):
+        return []
 
 @app.get("/professor/{school_id}/{name}")
+@app.get("/professors/{school_id}/{name}")
 @limiter.limit("15/minute")
 def get_professor(
     request: Request,
     school_id: str,
     name: str
 ):
-    payload = {
+    encoded_school_id = encode_school_id(school_id)
+    # 1. Search for the professor
+    search_payload = {
         "query": TEACHER_QUERY,
         "variables": {
             "query": {
                 "text": name,
-                "schoolID": school_id,
+                "schoolID": encoded_school_id,
                 "fallback": True,
                 "departmentID": None,
             },
-            "schoolID": school_id,
-            "includeSchoolFilter": True,
         },
     }
 
-    r = requests.post(RMP_URL, headers=HEADERS, json=payload, timeout=10)
+    r = requests.post(RMP_URL, headers=HEADERS, json=search_payload, timeout=10)
     data = r.json()
 
-    edges = data["data"]["search"]["teachers"]["edges"]
+    edges = data.get("data", {}).get("search", {}).get("teachers", {}).get("edges", [])
     if not edges:
         return {"found": False}
 
-    t = edges[0]["node"]
+    teacher_summary = edges[0]["node"]
+    legacy_id = teacher_summary["legacyId"]
+    
+    # 2. Fetch detailed professor data
+    encoded_teacher_id_str = encode_teacher_id(legacy_id)
+    details_payload = {
+        "query": TEACHER_RATINGS_QUERY,
+        "variables": {"id": encoded_teacher_id_str},
+    }
+    
+    r_details = requests.post(RMP_URL, headers=HEADERS, json=details_payload, timeout=10)
+    details_data = r_details.json()
+    
+    node = details_data.get("data", {}).get("node", {})
+    if not node:
+        return {"found": False}
+
+    # 3. Minimize and format data
+    
+    # Courses
+    course_codes = node.get("courseCodes", [])
+    courses = [{"name": c["courseName"], "count": c["courseCount"]} for c in course_codes]
+    courses.sort(key=lambda x: x["count"], reverse=True) # Sort by most common
+
+    # Tags
+    tags_data = node.get("teacherRatingTags", [])
+    tags = [t["tagName"] for t in tags_data]
+
+    # Ratings
+    raw_ratings = node.get("ratings", {}).get("edges", [])
+    ratings = []
+    for edge in raw_ratings:
+        r_node = edge["node"]
+        ratings.append({
+            "comment": r_node.get("comment"),
+            "clarity": r_node.get("clarityRating"),
+            "helpful": r_node.get("helpfulRating"),
+            "difficulty": r_node.get("difficultyRating"),
+            "date": r_node.get("date"),
+            "class": r_node.get("class"),
+            "grade": r_node.get("grade"),
+            "tags": r_node.get("ratingTags", "").split("--") if r_node.get("ratingTags") else [],
+            "takeAgain": r_node.get("wouldTakeAgain"),
+            "textbook": r_node.get("textbookUse")
+        })
+
     return {
         "found": True,
-        "name": f'{t["firstName"]} {t["lastName"]}',
-        "avgRating": t["avgRating"],
-        "avgDifficulty": t["avgDifficulty"],
-        "wouldTakeAgain": t["wouldTakeAgainPercent"],
-        "numRatings": t["numRatings"],
-        "department": t["department"],
-        "link": f'https://www.ratemyprofessors.com/professor/{t["legacyId"]}',
+        "id": node.get("legacyId"),
+        "firstName": node.get("firstName"),
+        "lastName": node.get("lastName"),
+        "name": f"{node.get('firstName')} {node.get('lastName')}",
+        "department": node.get("department"),
+        "school": {
+            "name": node.get("school", {}).get("name"),
+            "id": node.get("school", {}).get("legacyId"),
+            "city": node.get("school", {}).get("city"),
+            "state": node.get("school", {}).get("state"),
+        },
+        "avgRating": node.get("avgRating"),
+        "avgDifficulty": node.get("avgDifficulty"),
+        "numRatings": node.get("numRatings"),
+        "wouldTakeAgainPercent": node.get("wouldTakeAgainPercent"),
+        "courses": courses,
+        "tags": tags,
+        "ratings": ratings,
+        "relatedProfessors": [
+             {
+                 "id": rt.get("legacyId"), 
+                 "d": f"{rt.get('firstName')} {rt.get('lastName')}",
+                 "rating": rt.get("avgRating")
+             } 
+             for rt in node.get("relatedTeachers", [])
+        ]
     }
