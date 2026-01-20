@@ -13,6 +13,9 @@ uvicorn main:app --reload
 
 The API runs on http://localhost:8000
 
+> [!NOTE]
+> The `{school_id}` parameter supports both numeric legacy IDs (e.g., `1452`) and RMP's Base64 IDs (e.g., `U2Nob29sLTE0NTI=`). Numeric IDs are automatically encoded.
+
 ## Endpoints
 
 ### GET /schools/{name}
